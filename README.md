@@ -70,3 +70,25 @@ docker run --rm -v "$PWD:/data" geo-route-mcp python -m geo_route_mcp /data/samp
 ```
 
 첫 번째 `docker run`은 stdio MCP 서버입니다. Docker로 OpenStreetMap 공급자를 반복 사용할 때는 `/root/.cache/geo-route-mcp`에 영구 볼륨을 연결해 타일 캐시를 유지하세요.
+
+### MCP Gateway 연결용 Docker Compose
+
+기존 `mcp-gateway`와 같은 방식으로 토큰이 필요한 Streamable HTTP MCP 서버를 실행할 수 있습니다. Compose는 컨테이너의 8765 포트를 호스트의 `127.0.0.1:18768`에만 연결합니다. stdio 실행은 계속 지원합니다.
+
+```bash
+python3 scripts/setup_compose.py
+docker compose up -d --build
+docker compose ps
+```
+
+공개 Docker Hub 이미지는 `disturb8264/geo-route-mcp:0.2.0`입니다. Compose는 이 이름으로 이미지를 빌드하며, 소스에서 다시 빌드하려면 위처럼 `--build`를 사용합니다.
+
+기본 호스트 포트를 바꾸려면 `GEO_ROUTE_MCP_PORT`를 설정합니다. 컨테이너 사용자 ID가 현재 사용자와 다르면 `PUID`와 `PGID`를 지정합니다. 타일 캐시는 `data/tile-cache`에 보관합니다. `secrets/`와 `data/`는 Git 및 Docker 빌드에서 제외됩니다. `.env`에 둔 Google 키는 Compose 컨테이너 환경으로 전달되지 않으며 유료 지도 API는 호출하지 않습니다.
+
+Gateway 설정 파일 `mcp-gateway/gateway.yaml`의 `upstreams:` 아래에 [예제](examples/gateway-upstream.yaml)를 추가합니다. Gateway의 `secrets/geo_route_token`에는 Geo Route의 `secrets/geo_route_token`과 같은 토큰을 넣어야 합니다.
+
+```bash
+install -m 600 secrets/geo_route_token ../mcp-gateway/secrets/geo_route_token
+```
+
+Gateway가 호스트 네트워크를 쓰는 현재 구성에서는 예제 URL `http://127.0.0.1:18768/mcp`로 연결됩니다. Gateway를 재시작하거나 설정 새로고침이 적용되면 도구 이름은 `geo_route_render_route`, `geo_route_convert_route`, `geo_route_inspect_route`, `geo_route_list_map_providers`가 됩니다. 원본 Gateway 프로젝트의 파일은 이 저장소에서 변경하지 않습니다.

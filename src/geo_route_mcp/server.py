@@ -1,12 +1,17 @@
-"""FastMCP stdio server. Map API costs are disabled for image exports."""
+"""FastMCP stdio and authenticated HTTP server."""
 
 import base64
+import hmac
+import os
+import stat
 from io import BytesIO
+from pathlib import Path
 from typing import Literal
 
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 from pydantic import BaseModel, ConfigDict, model_validator
+from starlette.responses import JSONResponse
 
 from .analysis import RouteInspection, inspect
 from .exporters import export_geojson, export_gpx, export_kml
@@ -113,5 +118,57 @@ def list_map_providers_tool() -> list[ProviderInfo]:
     return list_providers()
 
 
+def load_internal_token() -> bytes:
+    """Load a private token shared with the local MCP Gateway."""
+    path_value = os.getenv("MCP_TOKEN_FILE")
+    if not path_value:
+        raise RuntimeError("MCP_TOKEN_FILE is required for HTTP transport")
+    path = Path(path_value)
+    info = path.stat()
+    if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077:
+        raise RuntimeError("MCP token file must be a private regular file (mode 600)")
+    token = path.read_text(encoding="ascii").strip()
+    if len(token) < 32:
+        raise RuntimeError("MCP token file is missing or too short")
+    return token.encode("ascii")
+
+
+class TokenGuard:
+    def __init__(self, app, token: bytes):
+        self.app = app
+        self.token = token
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            if scope.get("path") == "/health":
+                await JSONResponse({"status": "ok"})(scope, receive, send)
+                return
+            supplied = next(
+                (value for name, value in scope.get("headers", [])
+                 if name.lower() == b"x-mcp-internal-token"),
+                b"",
+            )
+            if not hmac.compare_digest(supplied, self.token):
+                await JSONResponse({"error": "unauthorized"}, status_code=401)(scope, receive, send)
+                return
+        await self.app(scope, receive, send)
+
+
+def create_app():
+    return TokenGuard(
+        mcp.http_app(path="/mcp", stateless_http=True, json_response=True),
+        load_internal_token(),
+    )
+
+
 if __name__ == "__main__":
-    mcp.run()
+    transport = os.getenv("MCP_TRANSPORT", "stdio")
+    if transport == "http":
+        import uvicorn
+
+        uvicorn.run(create_app(), host=os.getenv("MCP_HOST", "127.0.0.1"),
+                    port=int(os.getenv("MCP_PORT", "8765")), log_level="warning")
+    elif transport == "stdio":
+        mcp.run(transport="stdio")
+    else:
+        raise ValueError(f"Unsupported MCP_TRANSPORT: {transport}")

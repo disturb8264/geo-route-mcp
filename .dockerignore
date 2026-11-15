@@ -1,6 +1,9 @@
 .venv
+.git
 .tile-cache
 outputs
+data
+secrets
 .env
 .env.*
 .pytest_cache

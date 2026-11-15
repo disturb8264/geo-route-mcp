@@ -1,0 +1,25 @@
+services:
+  geo-route-mcp:
+    build: .
+    image: disturb8264/geo-route-mcp:0.2.0
+    container_name: geo-route-mcp
+    user: "${PUID:-1000}:${PGID:-1000}"
+    environment:
+      MCP_TRANSPORT: http
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 8765
+      MCP_TOKEN_FILE: /run/secrets/mcp_internal_token
+      GEO_ROUTE_TILE_CACHE_DIR: /app/data/tile-cache
+      TZ: Asia/Seoul
+    volumes:
+      - ./secrets/geo_route_token:/run/secrets/mcp_internal_token:ro
+      - ./data/tile-cache:/app/data/tile-cache
+    ports:
+      - "127.0.0.1:${GEO_ROUTE_MCP_PORT:-18768}:8765"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/health', timeout=3).read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped

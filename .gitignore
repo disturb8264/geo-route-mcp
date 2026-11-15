@@ -1,6 +1,8 @@
 .venv/
 .tile-cache/
 outputs/
+data/
+secrets/
 .env
 .env.*
 !.env.example

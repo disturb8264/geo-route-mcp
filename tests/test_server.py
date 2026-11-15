@@ -2,10 +2,12 @@ import asyncio
 import base64
 import sys
 
+import pytest
 from fastmcp import Client
 from fastmcp.client.transports import StdioTransport
+from starlette.testclient import TestClient
 
-from geo_route_mcp.server import mcp
+from geo_route_mcp.server import create_app, load_internal_token, mcp
 
 
 def test_mcp_tools_registered_and_callable():
@@ -28,6 +30,23 @@ def test_mcp_tools_registered_and_callable():
             assert listed.structured_content is not None
 
     asyncio.run(exercise())
+
+
+def test_http_requires_private_token(tmp_path, monkeypatch):
+    token_path = tmp_path / "token"
+    token_path.write_text("a" * 64, encoding="ascii")
+    token_path.chmod(0o600)
+    monkeypatch.setenv("MCP_TOKEN_FILE", str(token_path))
+    assert load_internal_token() == b"a" * 64
+
+    with TestClient(create_app()) as client:
+        assert client.get("/health").json() == {"status": "ok"}
+        assert client.post("/mcp").status_code == 401
+        assert client.post("/mcp", headers={"X-MCP-Internal-Token": "wrong"}).status_code == 401
+
+    token_path.chmod(0o644)
+    with pytest.raises(RuntimeError, match="private regular file"):
+        load_internal_token()
 
 
 def test_stdio_server_connects_and_lists_tools():

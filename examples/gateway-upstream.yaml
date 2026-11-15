@@ -1,0 +1,6 @@
+# Add this entry under `upstreams:` in mcp-gateway/gateway.yaml.
+# Copy geo-route-mcp/secrets/geo_route_token to mcp-gateway/secrets/geo_route_token.
+  - id: geo_route
+    url: http://127.0.0.1:18768/mcp
+    token_file: secrets/geo_route_token
+    allowed_tools: ["*"]
