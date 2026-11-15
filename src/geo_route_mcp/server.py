@@ -10,6 +10,7 @@ from typing import Annotated, Literal
 
 from dotenv import load_dotenv
 from fastmcp import FastMCP
+from fastmcp.utilities.types import Image
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from starlette.responses import JSONResponse
 
@@ -72,46 +73,38 @@ class ConvertedRoute(BaseModel):
     content: str = Field(description="Complete GPX/KML/GeoJSON text; save with the matching file extension.")
 
 
-@mcp.tool(name="render_route")
-def render_route_tool(
-    source: Annotated[RouteSource, Field(description=
-        "Actual GPS route from coordinates, GPX, KML, or GeoJSON. Check an external MCP's real response "
-        "shape before mapping Garmin/Strava/etc. data into this source. No route data means do not render."
-    )],
-    provider: Annotated[Literal["none", "openstreetmap", "esri_satellite"], Field(description=
-        "none: transparent route-only background, offline; openstreetmap: online street tiles, cached, "
-        "visible OSM credit required; esri_satellite: online Esri imagery for personal static maps, "
-        "visible Esri/data-source credit required, max 4096 px per side. Google is not an image provider."
-    )] = "none",
-    preset: Annotated[Literal["instagram_portrait", "instagram_square", "landscape"] | None,
-                      Field(description="Image size preset: instagram_portrait 1080x1350 (4:5), "
-                            "instagram_square 1080x1080 (1:1), landscape 1920x1080 (16:9). "
-                            "Explicit width/height override the corresponding preset dimension.")] = None,
-    width: Annotated[int | None, Field(description="Output width in pixels; overrides preset width. "
-                                       "Allowed range 64-8192; Esri limit 4096.")] = None,
-    height: Annotated[int | None, Field(description="Output height in pixels; overrides preset height. "
-                                        "Allowed range 64-8192; Esri limit 4096.")] = None,
-    output_format: Annotated[Literal["PNG", "JPEG"], Field(description=
-        "Encoded image type. PNG keeps transparency with provider none; JPEG uses a white background."
-    )] = "PNG",
-    line_color: Annotated[str, Field(description="GPS polyline color accepted by Pillow, e.g. #FF4F3C.")] = "#FF4F3C",
-    line_width: Annotated[int, Field(description="GPS polyline thickness in pixels, from 1 to 100.")] = 6,
-    show_metadata: Annotated[bool, Field(description="If true, draw available source route name, date, "
+RenderSource = Annotated[RouteSource, Field(description=
+    "Actual GPS route from coordinates, GPX, KML, or GeoJSON. Check an external MCP's real response "
+    "shape before mapping Garmin/Strava/etc. data into this source. No route data means do not render."
+)]
+RenderProvider = Annotated[Literal["none", "openstreetmap", "esri_satellite"], Field(description=
+    "none: transparent route-only background, offline; openstreetmap: online street tiles, cached, "
+    "visible OSM credit required; esri_satellite: online Esri imagery for personal static maps, "
+    "visible Esri/data-source credit required, max 4096 px per side. Google is not an image provider."
+)]
+RenderPreset = Annotated[Literal["instagram_portrait", "instagram_square", "landscape"] | None,
+                         Field(description="Image size preset: instagram_portrait 1080x1350 (4:5), "
+                               "instagram_square 1080x1080 (1:1), landscape 1920x1080 (16:9). "
+                               "Explicit width/height override the corresponding preset dimension.")]
+RenderWidth = Annotated[int | None, Field(description="Output width in pixels; overrides preset width. "
+                                           "Allowed range 64-8192; Esri limit 4096.")]
+RenderHeight = Annotated[int | None, Field(description="Output height in pixels; overrides preset height. "
+                                            "Allowed range 64-8192; Esri limit 4096.")]
+RenderFormat = Annotated[Literal["PNG", "JPEG"], Field(description=
+    "Encoded image type. PNG keeps transparency with provider none; JPEG uses a white background."
+)]
+RenderColor = Annotated[str, Field(description="GPS polyline color accepted by Pillow, e.g. #FF4F3C.")]
+RenderLineWidth = Annotated[int, Field(description="GPS polyline thickness in pixels, from 1 to 100.")]
+RenderMetadata = Annotated[bool, Field(description="If true, draw available source route name, date, "
                                          "distance, duration, and pace. Missing metadata is not invented; "
-                                         "inspect_route returns separately computed measurements.")] = False,
-) -> RenderedRoute:
-    """Render an existing GPS route as a PNG or JPEG image with start/end markers.
+                                         "inspect_route returns separately computed measurements.")]
 
-    Use GPS positions extracted from any service, including Garmin or Strava, after checking
-    the source tool's actual response format. Accept coordinates, GPX, KML, or GeoJSON; for
-    coordinates set coordinate_order explicitly. Never guess, generate, or alter missing GPS
-    positions. If no route data exists, ask for it instead of rendering. Call inspect_route
-    first when validation or distance matters; call list_map_providers when map availability
-    is uncertain. The route shape and segment gaps follow the supplied points.
 
-    Decode data_base64 into bytes and use mime_type to display/save the image; width and height
-    are pixels. Keep map credits visible in the image and preserve attribution when sharing it.
-    """
+def _render_route_bytes(source: RouteSource, provider: str, preset: str | None,
+                        width: int | None, height: int | None, output_format: str,
+                        line_color: str, line_width: int, show_metadata: bool
+                        ) -> tuple[bytes, int, int, str | None]:
+    """Share the existing map rendering path between MCP image and legacy JSON tools."""
     route = source.route()
     preset_width, preset_height = PRESETS[preset] if preset else (1080, 1080)
     options = RenderOptions(width=width or preset_width, height=height or preset_height,
@@ -128,9 +121,67 @@ def render_route_tool(
         attribution = None
     buffer = BytesIO()
     image.save(buffer, format=output_format)
+    return buffer.getvalue(), image.width, image.height, attribution
+
+
+@mcp.tool(name="render_route")
+def render_route_tool(
+    source: RenderSource,
+    provider: RenderProvider = "none",
+    preset: RenderPreset = None,
+    width: RenderWidth = None,
+    height: RenderHeight = None,
+    output_format: RenderFormat = "PNG",
+    line_color: RenderColor = "#FF4F3C",
+    line_width: RenderLineWidth = 6,
+    show_metadata: RenderMetadata = False,
+) -> Image:
+    """Render actual GPS positions as an MCP image for direct display by the client.
+
+    Use Garmin, Strava, or other source GPS positions only after checking their real
+    response format; never infer a missing route. Accept coordinates, GPX, KML, or
+    GeoJSON; coordinate arrays require an explicit coordinate_order. The supplied
+    point order and segment gaps define the route. Use inspect_route first if bounds
+    or distance need validation; use list_map_providers if map availability is unclear.
+
+    Returns MCP ImageContent (image/png by default, image/jpeg if requested), so an
+    MCP client can display the content directly without decoding a JSON field. The
+    output dimensions follow the preset or explicit width/height. OSM and Esri map
+    credits are drawn into the image and must remain visible when sharing it. Clients
+    that require the former structured JSON Base64 response should call
+    render_route_data with the same arguments.
+    """
+    data, _, _, _ = _render_route_bytes(source, provider, preset, width, height,
+                                        output_format, line_color, line_width, show_metadata)
+    return Image(data=data, format=output_format.lower())
+
+
+@mcp.tool(name="render_route_data")
+def render_route_data_tool(
+    source: RenderSource,
+    provider: RenderProvider = "none",
+    preset: RenderPreset = None,
+    width: RenderWidth = None,
+    height: RenderHeight = None,
+    output_format: RenderFormat = "PNG",
+    line_color: RenderColor = "#FF4F3C",
+    line_width: RenderLineWidth = 6,
+    show_metadata: RenderMetadata = False,
+) -> RenderedRoute:
+    """Legacy JSON Base64 route image response for existing clients.
+
+    Uses the same GPS source, provider, dimensions, and rendering as render_route.
+    Returns structured mime_type, data_base64, width, height, provider, and attribution;
+    decode data_base64 before saving/displaying. For direct MCP image display, prefer
+    render_route. Keep OSM/Esri credits visible when sharing a map image.
+    """
+    data, actual_width, actual_height, attribution = _render_route_bytes(
+        source, provider, preset, width, height, output_format,
+        line_color, line_width, show_metadata,
+    )
     return RenderedRoute(mime_type="image/png" if output_format == "PNG" else "image/jpeg",
-                         data_base64=base64.b64encode(buffer.getvalue()).decode("ascii"),
-                         width=image.width, height=image.height, provider=provider,
+                         data_base64=base64.b64encode(data).decode("ascii"),
+                         width=actual_width, height=actual_height, provider=provider,
                          attribution=attribution)
 
 
