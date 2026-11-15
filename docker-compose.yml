@@ -1,7 +1,7 @@
 services:
   geo-route-mcp:
     build: .
-    image: disturb8264/geo-route-mcp:0.3.0
+    image: disturb8264/geo-route-mcp:0.3.1
     container_name: geo-route-mcp
     user: "${PUID:-1000}:${PGID:-1000}"
     environment:

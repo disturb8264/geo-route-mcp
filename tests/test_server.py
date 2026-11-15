@@ -22,6 +22,14 @@ def test_mcp_tools_registered_and_callable():
             assert names == {"render_route", "render_route_data", "convert_route",
                              "inspect_route", "list_map_providers"}
             by_name = {tool.name: tool for tool in tools}
+            viewer_uri = "ui://geo-route/route-viewer-v1.html"
+            assert by_name["render_route"].meta["ui"]["resourceUri"] == viewer_uri
+            resources = await client.list_resources()
+            assert any(str(resource.uri) == viewer_uri and
+                       resource.mimeType == "text/html;profile=mcp-app" for resource in resources)
+            viewer = await client.read_resource(viewer_uri)
+            assert "ui/notifications/tool-result" in viewer[0].text
+            assert "data:${item.mimeType};base64" in viewer[0].text
             for name in names:
                 assert len(by_name[name].description) > 300
                 for field in by_name[name].inputSchema.get("properties", {}).values():

@@ -20,6 +20,7 @@ from .models import Route
 from .parsers import parse_coordinates, parse_geojson, parse_gpx, parse_kml
 from .providers import EsriSatelliteProvider, OSMTileProvider, ProviderInfo, list_providers
 from .render import PRESETS, RenderOptions, render_route as render_plain
+from .viewer import VIEWER_HTML, VIEWER_URI
 
 load_dotenv(override=False)
 mcp = FastMCP("Geo Route MCP")
@@ -124,7 +125,14 @@ def _render_route_bytes(source: RouteSource, provider: str, preset: str | None,
     return buffer.getvalue(), image.width, image.height, attribution
 
 
-@mcp.tool(name="render_route")
+@mcp.resource(VIEWER_URI, mime_type="text/html;profile=mcp-app")
+def route_viewer() -> str:
+    """Display an MCP route image in a compatible chat client's UI."""
+    return VIEWER_HTML
+
+
+@mcp.tool(name="render_route", meta={"ui": {"resourceUri": VIEWER_URI},
+                                     "openai/outputTemplate": VIEWER_URI})
 def render_route_tool(
     source: RenderSource,
     provider: RenderProvider = "none",
@@ -144,8 +152,8 @@ def render_route_tool(
     point order and segment gaps define the route. Use inspect_route first if bounds
     or distance need validation; use list_map_providers if map availability is unclear.
 
-    Returns MCP ImageContent (image/png by default, image/jpeg if requested), so an
-    MCP client can display the content directly without decoding a JSON field. The
+    Returns MCP ImageContent (image/png by default, image/jpeg if requested), and
+    exposes an MCP Apps viewer resource for clients that support inline UI. The
     output dimensions follow the preset or explicit width/height. OSM and Esri map
     credits are drawn into the image and must remain visible when sharing it. Clients
     that require the former structured JSON Base64 response should call
