@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "geo-route-mcp"
+version = "0.1.0"
+description = "Service-independent GPS route parsing and rendering foundation"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["pydantic>=2.7,<3", "Pillow>=11,<12", "defusedxml>=0.7,<1", "python-dotenv>=1,<2"]
+
+[project.optional-dependencies]
+mcp = ["fastmcp>=2,<4"]
+test = ["pytest>=8,<9"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/geo_route_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+

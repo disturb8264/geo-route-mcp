@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "geo-route": {
+      "command": "/home/disturb/projects/geo-route-mcp/.venv/bin/python",
+      "args": ["-m", "geo_route_mcp.server"],
+      "cwd": "/home/disturb/projects/geo-route-mcp"
+    }
+  }
+}

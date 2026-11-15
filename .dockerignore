@@ -1,0 +1,12 @@
+.venv
+.tile-cache
+outputs
+.env
+.env.*
+.pytest_cache
+__pycache__
+tests
+*.egg-info
+*.png
+*.jpg
+*.jpeg

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="geo-route-mcp" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk><name>Seoul sample</name><trkseg>
+    <trkpt lat="37.56650" lon="126.97800"><time>2026-01-01T00:00:00Z</time></trkpt>
+    <trkpt lat="37.56720" lon="126.98020"><time>2026-01-01T00:01:00Z</time></trkpt>
+    <trkpt lat="37.56830" lon="126.98210"><time>2026-01-01T00:02:00Z</time></trkpt>
+  </trkseg></trk>
+</gpx>
