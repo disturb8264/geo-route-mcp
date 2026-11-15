@@ -12,7 +12,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from PIL import Image, ImageDraw, ImageFont
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .models import Route
 from .render import RenderOptions, _unwrap, draw_endpoints, draw_metadata
@@ -25,13 +25,13 @@ MERCATOR_LIMIT = 85.05112878
 
 
 class ProviderInfo(BaseModel):
-    id: str
-    available: bool
-    image_export: bool
-    network: bool
-    configured: bool = True
-    attribution: str | None = None
-    note: str | None = None
+    id: str = Field(description="Provider identifier; use image_export=true IDs in render_route.provider.")
+    available: bool = Field(description="Supported for use locally; not a live connectivity check.")
+    image_export: bool = Field(description="Whether this provider may produce PNG/JPEG via render_route.")
+    network: bool = Field(description="Whether rendering with this provider needs network access.")
+    configured: bool = Field(default=True, description="Whether required local configuration is present.")
+    attribution: str | None = Field(default=None, description="Credit that must remain visible on exported maps.")
+    note: str | None = Field(default=None, description="Provider usage limits or conditions.")
 
 
 def list_providers() -> list[ProviderInfo]:

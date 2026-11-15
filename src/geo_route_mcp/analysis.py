@@ -3,7 +3,7 @@
 from datetime import datetime
 from math import asin, cos, radians, sin, sqrt
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .models import Point, Route
 
@@ -11,19 +11,23 @@ EARTH_RADIUS_KM = 6371.0088
 
 
 class RouteInspection(BaseModel):
-    valid: bool
-    segment_count: int
-    point_count: int
-    min_latitude: float
-    max_latitude: float
-    min_longitude: float
-    max_longitude: float
-    crosses_antimeridian: bool
-    distance_km: float
-    start_time: datetime | None = None
-    end_time: datetime | None = None
-    duration_seconds: float | None = None
-    pace_seconds_per_km: float | None = None
+    valid: bool = Field(description="True for a successfully parsed route; invalid input raises an error.")
+    segment_count: int = Field(description="Number of distinct route segments; gaps are not connected.")
+    point_count: int = Field(description="Total count of actual GPS points across all segments.")
+    min_latitude: float = Field(description="Southernmost supplied latitude in degrees.")
+    max_latitude: float = Field(description="Northernmost supplied latitude in degrees.")
+    min_longitude: float = Field(description="Westernmost numeric longitude in degrees.")
+    max_longitude: float = Field(description="Easternmost numeric longitude in degrees.")
+    crosses_antimeridian: bool = Field(description="Whether consecutive points cross the +/-180-degree meridian.")
+    distance_km: float = Field(description="Great-circle distance in km, summed only within each segment.")
+    start_time: datetime | None = Field(default=None, description="First supplied point timestamp, if any.")
+    end_time: datetime | None = Field(default=None, description="Last supplied point timestamp, if any.")
+    duration_seconds: float | None = Field(
+        default=None, description="Nonnegative difference between comparable first/last supplied timestamps."
+    )
+    pace_seconds_per_km: float | None = Field(
+        default=None, description="Duration divided by distance when duration exists and distance is positive."
+    )
 
 
 def _distance(a: Point, b: Point) -> float:

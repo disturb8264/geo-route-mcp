@@ -16,6 +16,18 @@ def test_mcp_tools_registered_and_callable():
             tools = await client.list_tools()
             names = {tool.name for tool in tools}
             assert names == {"render_route", "convert_route", "inspect_route", "list_map_providers"}
+            by_name = {tool.name: tool for tool in tools}
+            for name in names:
+                assert len(by_name[name].description) > 300
+                for field in by_name[name].inputSchema.get("properties", {}).values():
+                    assert field.get("description")
+            source_schema = by_name["render_route"].inputSchema["properties"]["source"]
+            for field in ("format", "content", "coordinate_order"):
+                assert source_schema["properties"][field].get("description")
+            assert "lat_lon" in source_schema["properties"]["coordinate_order"]["description"]
+            assert "google_satellite" in by_name["list_map_providers"].description
+            assert "data_base64" in by_name["render_route"].outputSchema["properties"]
+            assert by_name["render_route"].outputSchema["properties"]["data_base64"]["description"]
             source = {"format": "coordinates", "content": [[37.5, 127.0], [37.6, 127.1]],
                       "coordinate_order": "lat_lon"}
             inspected = await client.call_tool("inspect_route", {"source": source})
