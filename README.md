@@ -90,12 +90,8 @@ docker compose ps
 
 기본 호스트 포트를 바꾸려면 `GEO_ROUTE_MCP_PORT`를 설정합니다. 컨테이너 사용자 ID가 현재 사용자와 다르면 `PUID`와 `PGID`를 지정합니다. 타일 캐시는 `data/tile-cache`에 보관합니다. `secrets/`와 `data/`는 Git 및 Docker 빌드에서 제외됩니다. `.env`에 둔 Google 키는 Compose 컨테이너 환경으로 전달되지 않으며 유료 지도 API는 호출하지 않습니다.
 
-Gateway 설정 파일 `mcp-gateway/gateway.yaml`의 `upstreams:` 아래에 [예제](examples/gateway-upstream.yaml)를 추가합니다. Gateway의 `secrets/geo_route_token`에는 Geo Route의 `secrets/geo_route_token`과 같은 토큰을 넣어야 합니다.
+현재 Gateway 소스는 [garmin-mcp-bridge](https://github.com/disturb8264/garmin-mcp-bridge)에 있습니다. **Gateway `0.4.2`**가 도구의 `_meta.ui.resourceUri`와 해당 MCP `resources/list`·`resources/read` 요청을 중계합니다. Gateway의 `gateway.yaml`에 [Geo Route upstream 예제](examples/gateway-upstream.yaml)를 추가하고, Gateway의 `secrets/geo_route_token`에는 Geo Route의 활성 토큰과 같은 값을 넣습니다. NAS 적용 순서와 실제 검증 명령은 [Gateway의 Geo Route UI 안내](https://github.com/disturb8264/garmin-mcp-bridge/blob/main/docs/06-geo-route-ui-nas.md)를 따릅니다.
 
-```bash
-install -m 600 secrets/geo_route_token ../mcp-gateway/secrets/geo_route_token
-```
+같은 호스트에서 Gateway가 호스트 네트워크로 실행될 때만 예제 URL `http://127.0.0.1:18768/mcp`를 그대로 사용합니다. 개발 서버의 이 포트는 개발 서버 자신의 루프백에만 게시돼 있으므로 NAS Gateway가 직접 접근할 수 없습니다. Geo Route를 NAS에 함께 배포하거나 Gateway에서 접근 가능한 실제 URL을 지정합니다.
 
-Gateway가 호스트 네트워크를 쓰는 현재 구성에서는 예제 URL `http://127.0.0.1:18768/mcp`로 연결됩니다. Gateway를 재시작하거나 설정 새로고침이 적용되면 `geo_route_render_route`, `geo_route_render_route_data`, `geo_route_convert_route`, `geo_route_inspect_route`, `geo_route_list_map_providers` 도구를 볼 수 있습니다. 원본 Gateway 프로젝트의 파일은 이 저장소에서 변경하지 않습니다.
-
-대화 화면에 이미지 뷰어를 표시하려면 Gateway가 도구의 `_meta.ui.resourceUri`와 해당 MCP `resources/list`·`resources/read` 요청을 함께 중계해야 합니다. 도구 호출만 중계하는 Gateway 구성에서는 뷰어가 표시되지 않습니다.
+Gateway `0.4.2`와 Geo Route `0.3.1`을 개발 서버에서 Docker 컨테이너로 연결해 `geo_route_render_route`의 UI 메타데이터, HTML 리소스 목록·읽기와 240×320 PNG를 확인했습니다. NAS 터널과 ChatGPT 화면의 실제 표시는 NAS 배포 후 검증해야 합니다.
